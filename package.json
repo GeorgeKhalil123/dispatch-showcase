@@ -1,0 +1,38 @@
+{
+  "name": "dispatch-showcase",
+  "version": "0.1.0",
+  "description": "Extracted core of Dispatch: coverage-first school-bus route optimizer, carpool grouping, and human-reviewed import scoring",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "demo": "tsx src/demo/run.ts",
+    "serve": "tsx src/api/server.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "knex": "^3.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.4",
+    "@types/supertest": "^7.2.1",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "better-sqlite3": "^13.0.3",
+    "eslint": "^8.57.1",
+    "supertest": "^7.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.0",
+    "vitest": "^4.1.10"
+  }
+}
