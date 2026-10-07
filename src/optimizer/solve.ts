@@ -12,6 +12,7 @@ import type { Leg, TravelTimeProvider, Waypoint } from "./travelTime";
 import type {
   OptimizationResult,
   PeriodDiagnostics,
+  PreservedAssignment,
   RouteAssignment,
   RouteCandidate,
   SolveConfig,
@@ -296,13 +297,25 @@ export async function solve(
   const totalMiles = newAssignments.reduce((sum, a) => sum + a.estimated_miles, 0);
   const totalMinutes = newAssignments.reduce((sum, a) => sum + a.estimated_travel_minutes, 0);
   const driversUsed = new Set([...kept.map((a) => a.driver_id), ...newAssignments.map((a) => a.driver_id)]).size;
+  const preserved: PreservedAssignment[] = kept.map((a) => {
+    const { route } = routeById.get(a.route_id)!;
+    return {
+      driver_id: a.driver_id,
+      driver_name: drivers[driverIdxById.get(a.driver_id)!].name,
+      route_id: a.route_id,
+      route_type: route.type,
+      route_code: route.route_code ?? null,
+    };
+  });
 
   return {
     assignments: newAssignments,
+    preserved,
     unassigned,
     stats: {
       total_routes: allRoutes.length,
-      assigned: kept.length + newAssignments.length,
+      assigned: preserved.length + newAssignments.length,
+      preserved: preserved.length,
       unassigned: unassigned.length,
       flagged_skipped: flaggedCount,
       total_estimated_miles: Math.round(totalMiles * 100) / 100,
@@ -321,6 +334,7 @@ function round2(n: number): number {
 function emptyResult(warning: string, routes: Route[]): OptimizationResult {
   return {
     assignments: [],
+    preserved: [],
     unassigned: routes
       .filter((r) => !r.flagged)
       .map((r) => ({
@@ -333,6 +347,7 @@ function emptyResult(warning: string, routes: Route[]): OptimizationResult {
     stats: {
       total_routes: routes.length,
       assigned: 0,
+      preserved: 0,
       unassigned: routes.filter((r) => !r.flagged).length,
       flagged_skipped: routes.filter((r) => r.flagged).length,
       total_estimated_miles: 0,

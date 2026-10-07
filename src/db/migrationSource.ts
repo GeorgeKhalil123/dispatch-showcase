@@ -20,6 +20,7 @@ export const migrationSource: Knex.MigrationSource<string> = {
     return name;
   },
   async getMigration(name) {
+    if (!Object.hasOwn(MIGRATIONS, name)) throw new Error(`Unknown migration: ${name}`);
     return MIGRATIONS[name];
   },
 };

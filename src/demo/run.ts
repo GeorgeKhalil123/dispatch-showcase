@@ -51,12 +51,8 @@ async function main(): Promise<void> {
     );
   }
   console.log("");
-  // Preserved assignments are counted in stats.assigned but not re-emitted
-  // by the solver, so print them from the input.
-  for (const e of existing) {
-    const route = routes.find((r) => r.route.id === e.route_id)?.route;
-    const driver = drivers.find((d) => d.id === e.driver_id);
-    console.log(`${route?.type ?? "??"}  ${e.route_id.padEnd(11)} ${(driver?.name ?? e.driver_id).padEnd(9)} (preserved)`);
+  for (const p of result.preserved) {
+    console.log(`${p.route_type}  ${p.route_id.padEnd(11)} ${p.driver_name.padEnd(9)} (preserved)`);
   }
   for (const a of result.assignments) {
     const merged = a.trip_group_ids && a.trip_group_ids.length > 1 ? ` (shared trip x${a.trip_group_ids.length})` : "";
@@ -76,7 +72,7 @@ async function main(): Promise<void> {
   console.log(`${preview.filename}: ${preview.total_extracted} row(s), ${preview.needs_review} need review`);
   for (const r of preview.routes) {
     const status = needsReview(r) ? "REVIEW" : "ok    ";
-    console.log(`${status} ${String(r.child_name).padEnd(11)} conf=${r.confidence.toFixed(2)}  ${r.flags.join("; ")}`);
+    console.log(`${status} ${String(r.child_name).padEnd(11)} conf=${r.confidence.toFixed(2)}  ${r.flags.join("; ")}`.trimEnd());
   }
   for (const w of preview.warnings) console.log(`warning: ${w}`);
   console.log(`\n(date ${DEMO_DATE}; all data is synthetic)`);

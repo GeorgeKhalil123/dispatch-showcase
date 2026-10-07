@@ -80,8 +80,8 @@ export class MatrixProvider implements TravelTimeProvider {
         out[i] = { miles: 0, minutes: 0 };
         return;
       }
-      const hit = this.table[legKey(leg.from.address, leg.to.address)];
-      if (hit) out[i] = hit;
+      const key = legKey(leg.from.address, leg.to.address);
+      if (Object.hasOwn(this.table, key)) out[i] = this.table[key];
       else misses.push(i);
     });
 

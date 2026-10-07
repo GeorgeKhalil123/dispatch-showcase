@@ -1,4 +1,5 @@
 import { z, type ZodError } from "zod";
+import { DEFAULT_MAX_ITERATIONS } from "../optimizer/backtrack";
 import { isCalendarDate, type HttpError } from "./validate";
 
 /**
@@ -23,8 +24,8 @@ export function zodErrorToHttp(err: ZodError, prefix = "Validation failed"): Htt
 
 const isoDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date: expected ISO format (YYYY-MM-DD).")
-  .refine(isCalendarDate, "Invalid date: not a real calendar date.");
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date: expected ISO format (YYYY-MM-DD)")
+  .refine(isCalendarDate, "Invalid date: not a real calendar date");
 
 // Body of POST /optimize. Mirrors SolveConfig plus the date whose existing
 // assignments should be preserved.
@@ -32,7 +33,8 @@ export const optimizeRequestSchema = z.object({
   date: isoDate,
   buffer_minutes: z.number().positive().max(120).optional(),
   preserve_existing: z.boolean().default(true),
-  max_iterations: z.number().int().positive().max(10_000_000).optional(),
+  // Capped at the default: callers may lower the search budget, not raise it.
+  max_iterations: z.number().int().positive().max(DEFAULT_MAX_ITERATIONS).optional(),
 });
 
 export type OptimizeRequestInput = z.infer<typeof optimizeRequestSchema>;

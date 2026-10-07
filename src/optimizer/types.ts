@@ -26,6 +26,15 @@ export interface RouteAssignment {
   trip_group_ids?: string[];        // All route IDs merged into this same physical trip
 }
 
+/** An already-committed assignment the solver kept fixed (not re-planned). */
+export interface PreservedAssignment {
+  driver_id: string;
+  driver_name: string;
+  route_id: string;
+  route_type: "AM" | "PM";
+  route_code: string | null;
+}
+
 export interface UnassignedRoute {
   route_id: string;
   route_type: "AM" | "PM";
@@ -46,16 +55,18 @@ export interface PeriodDiagnostics {
 }
 
 export interface OptimizationResult {
-  assignments: RouteAssignment[];
+  assignments: RouteAssignment[];     // NEW assignments proposed by this run
+  preserved: PreservedAssignment[];   // existing assignments kept as-is
   unassigned: UnassignedRoute[];
   stats: {
     total_routes: number;
-    assigned: number;
+    assigned: number;                 // coverage: preserved + new (= preserved.length + assignments.length)
+    preserved: number;                // = preserved.length
     unassigned: number;
     flagged_skipped: number;
-    total_estimated_miles: number;
-    total_estimated_minutes: number;
-    drivers_used: number;
+    total_estimated_miles: number;    // NEW assignments only; preserved trips were costed when committed
+    total_estimated_minutes: number;  // NEW assignments only
+    drivers_used: number;             // distinct drivers across preserved + new
   };
   diagnostics: PeriodDiagnostics[];
   warnings: string[];

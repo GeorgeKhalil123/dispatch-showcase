@@ -69,6 +69,11 @@ describe("pickFields", () => {
     expect(picked).toEqual({ a: 1, c: 3 });
   });
 
+  it("ignores inherited Object.prototype members", () => {
+    const picked = pickFields({}, ["toString", "constructor"] as const);
+    expect(picked).toEqual({});
+  });
+
   it("silently drops disallowed keys (e.g. id/created_at) instead of throwing", () => {
     const picked = pickFields({ id: "x", name: "n", created_at: "t" }, ["name"] as const);
     expect(picked).toEqual({ name: "n" });
@@ -93,10 +98,12 @@ describe("validateDate", () => {
     expect(next).toHaveBeenCalledWith();
   });
 
-  it("accepts a full ISO timestamp", () => {
+  it("rejects a full ISO timestamp (date-only, same as the zod schema)", () => {
     const next = collectNext();
     validateDate("date")(makeReq({ date: "2026-07-30T12:00:00Z" }), {} as Response, next);
-    expect(next).toHaveBeenCalledWith();
+    const err = (next as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(err.status).toBe(400);
+    expect(err.message).toContain("YYYY-MM-DD");
   });
 
   it("rejects a non-ISO-shaped string", () => {

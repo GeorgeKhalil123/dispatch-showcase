@@ -156,6 +156,14 @@ describe("previewExtraction (stub extractor)", () => {
     });
   });
 
+  it.each(["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"])(
+    "does not treat Object.prototype member %s as a canned manifest",
+    async (filename) => {
+      const extractor = new StubExtractor({ "RT1.pdf": [row()] });
+      await expect(extractor.extract(filename, "[]")).resolves.toEqual([]);
+    },
+  );
+
   it("rejects parsed content that is not an array of row objects", async () => {
     const extractor = new StubExtractor();
     await expect(extractor.extract("x.pdf", '{"a":1}')).rejects.toThrow(ExtractionError);

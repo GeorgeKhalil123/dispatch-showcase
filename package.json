@@ -10,7 +10,7 @@
   "scripts": {
     "demo": "tsx src/demo/run.ts",
     "serve": "tsx src/api/server.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

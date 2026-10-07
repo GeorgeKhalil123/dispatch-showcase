@@ -55,7 +55,9 @@ export class StubExtractor implements Extractor {
   constructor(private readonly canned: Record<string, FieldPassRow[]> = {}) {}
 
   async extract(filename: string, content: string): Promise<FieldPassRow[]> {
-    if (this.canned[filename]) return structuredClone(this.canned[filename]);
+    // hasOwn, not a truthiness check: filenames like "constructor" or
+    // "__proto__" would otherwise resolve to Object.prototype members.
+    if (Object.hasOwn(this.canned, filename)) return structuredClone(this.canned[filename]);
     if (!content.trim()) return [];
     const parsed: unknown = JSON.parse(content);
     if (!Array.isArray(parsed)) throw new ExtractionError("content must be a JSON array of rows");

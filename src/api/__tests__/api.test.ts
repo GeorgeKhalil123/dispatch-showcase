@@ -74,6 +74,41 @@ describe("POST /optimize", () => {
     }
   });
 
+  it("400s on a timestamp instead of a date-only value", async () => {
+    const res = await request(makeApp()).post("/optimize").send({ date: "2026-09-08T00:00:00Z" });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("YYYY-MM-DD");
+  });
+
+  it("400s when max_iterations exceeds the default cap", async () => {
+    const res = await request(makeApp()).post("/optimize").send({ date: DEMO_DATE, max_iterations: 2_000_001 });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/^Validation failed: max_iterations/);
+  });
+
+  it.each(["5", '"x"', "null"])("400s with a clear message on a top-level JSON %s", async (raw) => {
+    const res = await request(makeApp()).post("/optimize").set("Content-Type", "application/json").send(raw);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Request body must be a JSON object");
+  });
+
+  it("keeps the parser message for genuinely malformed JSON", async () => {
+    const res = await request(makeApp()).post("/optimize").set("Content-Type", "application/json").send("{not json");
+    expect(res.body.message).not.toBe("Request body must be a JSON object");
+  });
+
+  it("reports preserved assignments separately and stats consistently", async () => {
+    const res = await request(makeApp()).post("/optimize").send({ date: DEMO_DATE });
+    const body = res.body as OptimizationResult;
+    expect(body.preserved).toEqual([
+      { driver_id: "drv-4", driver_name: "Driver 4", route_id: "rt-106-am", route_type: "AM", route_code: null },
+    ]);
+    expect(body.stats.preserved).toBe(body.preserved.length);
+    expect(body.stats.assigned).toBe(body.preserved.length + body.assignments.length);
+    const miles = body.assignments.reduce((s, a) => s + a.estimated_miles, 0);
+    expect(body.stats.total_estimated_miles).toBeCloseTo(miles, 2);
+  });
+
   it("returns a proposal that preserves existing assignments for that date", async () => {
     const res = await request(makeApp()).post("/optimize").send({ date: DEMO_DATE });
     expect(res.status).toBe(200);
@@ -120,6 +155,24 @@ describe("POST /import/preview — malformed rows", () => {
     expect(res.status).toBe(422);
     expect(res.body.message).toMatch(/^Could not parse document: /);
     expect(res.body.details).toBeUndefined();
+  });
+});
+
+describe("POST /import/preview — prototype-named files", () => {
+  it.each(["constructor", "__proto__", "toString", "hasOwnProperty", "valueOf"])(
+    "treats %s as an ordinary filename",
+    async (filename) => {
+      const res = await request(makeApp()).post("/import/preview").send({ filename, content: "[]" });
+      expect(res.status).toBe(200);
+      expect(res.body.total_extracted).toBe(0);
+    },
+  );
+});
+
+describe("GET with a Content-Type but no body", () => {
+  it("is not rejected as 415", async () => {
+    const res = await request(makeApp()).get("/health").set("Content-Type", "text/plain");
+    expect(res.status).toBe(200);
   });
 });
 

@@ -20,8 +20,10 @@ export function createApp({ repo, travel, extractor }: AppDeps): Express {
   // Every endpoint takes JSON. A body sent with another Content-Type would
   // otherwise be ignored by express.json() and fail confusingly downstream.
   // No Content-Type at all leaves req.body unset; the field checks 400 that.
+  // req.is() returns null when the request has no body (e.g. a GET), so only
+  // requests that actually carry a non-JSON body are rejected.
   app.use((req: Request, _res: Response, next: NextFunction) => {
-    if (req.headers["content-type"] && !req.is("application/json")) {
+    if (req.headers["content-type"] && req.is("application/json") === false) {
       return next(httpError("Unsupported Media Type: send the body as application/json", 415));
     }
     next();

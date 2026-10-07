@@ -78,7 +78,7 @@ flowchart LR
 | TypeScript test files | 14 | `find src -name '*.test.ts' -not -path '*/node_modules/*' \| wc -l` |
 | `it()` / `test()` cases | 127 | grep count over those files (not a runner count) |
 | Knex migrations | 12 | `01_create_core_tables.ts` through `12_add_driver_pay_type_check.ts` |
-| Solver iteration cap | 2,000,000 per period | constant in the optimizer |
+| Solver iteration cap | 2,000,000 per period | constant in the optimizer; `max_iterations` on `POST /optimize` can lower it, not raise it |
 | Python/FastAPI port tests | 710 collected | `pytest --collect-only -q` |
 
 The backend was also ported to Python/FastAPI. Its status document records that every endpoint was diffed against the running TypeScript server on the same requests and matched byte for byte. TypeScript is still the default runtime, chosen on solver performance. The Python port source is not included here.
@@ -122,6 +122,8 @@ curl -s -X POST localhost:3000/import/preview -H 'content-type: application/json
   -d '{"filename":"RT201 Morning.pdf"}'
 ```
 
+`/optimize` returns new proposals in `assignments` and the already-committed ones it kept in `preserved`. `stats.assigned` counts both (here 9 new + 1 preserved = 10); `total_estimated_miles`/`minutes` cover the new assignments only.
+
 Client errors come back as JSON 4xx (`{"status":…,"message":…}`). Server errors never include a stack trace unless the server is started with `DISPATCH_DEBUG=1`.
 
 Excerpt of `npm run demo`:
@@ -135,7 +137,7 @@ Excerpt of `npm run demo`:
 AM  rt-106-am   Driver 4  (preserved)
 AM  rt-103-am   Driver 2    3.18 mi   4 min
 ...
-{"total_routes":12,"assigned":10,"unassigned":0,"flagged_skipped":2,"total_estimated_miles":31.47,"total_estimated_minutes":41,"drivers_used":4}
+{"total_routes":12,"assigned":10,"preserved":1,"unassigned":0,"flagged_skipped":2,"total_estimated_miles":31.47,"total_estimated_minutes":41,"drivers_used":4}
 
 === 3. Import preview (stub extractor, review routing) ================
 RT201 Morning.pdf: 4 row(s), 3 need review
@@ -162,7 +164,7 @@ src/
 
 ## Tests
 
-`npm test` runs 129 tests across 10 files. The feasibility, greedy-seed, trip-helper and validate-middleware tests are ported from the private repo. The grouping tests were rewritten to run without the database mock. The solver, confidence, API (supertest) and migration (Knex on in-memory SQLite) tests were written for this extract. CI runs typecheck, lint and tests on Node 22.
+`npm test` runs 148 tests across 10 files. The feasibility, greedy-seed, trip-helper and validate-middleware tests are ported from the private repo. The grouping tests were rewritten to run without the database mock. The solver, confidence, API (supertest) and migration (Knex on in-memory SQLite) tests were written for this extract. CI runs typecheck, lint and tests on Node 22.
 
 ## Known limitation (inherited)
 

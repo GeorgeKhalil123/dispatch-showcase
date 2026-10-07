@@ -24,12 +24,12 @@ function bodyOf(req: Request): Record<string, unknown> {
 }
 
 /**
- * True when `value` starts with a YYYY-MM-DD date that exists on the calendar.
+ * True when `value` is a YYYY-MM-DD date that exists on the calendar.
  * `Date` silently rolls impossible dates over ("2026-02-30" -> March 2), so
  * the parsed components must round-trip back to the same year/month/day.
  */
 export function isCalendarDate(value: string): boolean {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
   const date = new Date(Date.UTC(y, mo - 1, d));
@@ -69,28 +69,27 @@ export function pickFields<T extends string>(
   if (typeof body === "object" && body !== null) {
     const record = body as Record<string, unknown>;
     for (const key of allowed) {
-      if (key in record) picked[key] = record[key];
+      if (Object.hasOwn(record, key)) picked[key] = record[key];
     }
   }
   return picked as Record<T, unknown>;
 }
 
 /**
- * Validates that `req.body[field]` is a string in ISO date form (YYYY-MM-DD)
- * or a full ISO 8601 timestamp that parses cleanly via `Date` and names a real
- * calendar day (no "2026-02-30"). Skips when the
+ * Validates that `req.body[field]` is a date-only ISO string (YYYY-MM-DD)
+ * that names a real calendar day (no "2026-02-30"), matching the zod
+ * `isoDate` schema. Skips when the
  * field is absent — pair with `requireFields` when the field is mandatory.
  */
 export function validateDate(field: string) {
-  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T[\d:.Z+-]*)?$/;
+  const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
   return (req: Request, _res: Response, next: NextFunction) => {
     const value = bodyOf(req)[field];
     if (value === undefined || value === null || value === "") return next();
     if (typeof value !== "string" || !ISO_DATE_RE.test(value)) {
       return next(makeError(`Invalid date for field "${field}": expected ISO format (YYYY-MM-DD)`));
     }
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime()) || !isCalendarDate(value)) {
+    if (!isCalendarDate(value)) {
       return next(makeError(`Invalid date for field "${field}": not a real calendar date`));
     }
     next();
