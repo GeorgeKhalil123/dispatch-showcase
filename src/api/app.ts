@@ -5,7 +5,7 @@ import { ExtractionError, previewExtraction, type Extractor } from "../ingest/ex
 import type { DispatchRepository } from "./repository";
 import { httpError, requireFields, validateDate, validatePositiveNumber } from "./validate";
 import { importPreviewSchema, optimizeRequestSchema, zodErrorToHttp } from "./schemas";
-import { errorHandler } from "./errorHandler";
+import { errorHandler, UNSUPPORTED_CHARSET } from "./errorHandler";
 
 export interface AppDeps {
   repo: DispatchRepository;
@@ -15,6 +15,17 @@ export interface AppDeps {
 
 export function createApp({ repo, travel, extractor }: AppDeps): Express {
   const app = express();
+
+  // express.json() accepts any utf-* charset and would decode UTF-8 bytes as
+  // e.g. UTF-16, turning valid JSON into a misleading parse error. Only UTF-8
+  // (the JSON default) is supported.
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    const charset = /;\s*charset="?([^";\s]+)/i.exec(req.headers["content-type"] ?? "")?.[1].toLowerCase();
+    if (req.is("application/json") && charset && charset !== "utf-8" && charset !== "utf8") {
+      return next(httpError(UNSUPPORTED_CHARSET, 415));
+    }
+    next();
+  });
   app.use(express.json({ limit: "1mb" }));
 
   // Every endpoint takes JSON. A body sent with another Content-Type would

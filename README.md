@@ -164,7 +164,7 @@ src/
 
 ## Tests
 
-`npm test` runs 148 tests across 10 files. The feasibility, greedy-seed, trip-helper and validate-middleware tests are ported from the private repo. The grouping tests were rewritten to run without the database mock. The solver, confidence, API (supertest) and migration (Knex on in-memory SQLite) tests were written for this extract. CI runs typecheck, lint and tests on Node 22.
+`npm test` runs 154 tests across 10 files. The feasibility, greedy-seed, trip-helper and validate-middleware tests are ported from the private repo. The grouping tests were rewritten to run without the database mock. The solver, confidence, API (supertest) and migration (Knex on in-memory SQLite) tests were written for this extract. CI runs typecheck, lint and tests on Node 22.
 
 ## Known limitation (inherited)
 

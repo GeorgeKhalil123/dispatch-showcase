@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../app";
+import { errorHandler } from "../errorHandler";
 import { InMemoryRepository } from "../repository";
 import { HaversineProvider } from "../../optimizer/travelTime";
 import { StubExtractor, type Extractor } from "../../ingest/extractor";
@@ -90,6 +91,23 @@ describe("POST /optimize", () => {
     const res = await request(makeApp()).post("/optimize").set("Content-Type", "application/json").send(raw);
     expect(res.status).toBe(400);
     expect(res.body.message).toBe("Request body must be a JSON object");
+  });
+
+  it.each(["utf-16", "UTF-16LE", "latin1", '"iso-8859-1"'])("415s on JSON sent with charset=%s", async (charset) => {
+    const res = await request(makeApp())
+      .post("/optimize")
+      .set("Content-Type", `application/json; charset=${charset}`)
+      .send(JSON.stringify({ date: DEMO_DATE }));
+    expect(res.status).toBe(415);
+    expect(res.body.message).toBe("Unsupported charset: send the body as UTF-8 JSON");
+  });
+
+  it("accepts an explicit UTF-8 charset", async () => {
+    const res = await request(makeApp())
+      .post("/optimize")
+      .set("Content-Type", "application/json; charset=UTF-8")
+      .send(JSON.stringify({ date: DEMO_DATE }));
+    expect(res.status).toBe(200);
   });
 
   it("keeps the parser message for genuinely malformed JSON", async () => {
@@ -213,5 +231,16 @@ describe("error handler", () => {
     const res = await request(failingApp()).post("/import/preview").send({ filename: "x.pdf" });
     expect(res.status).toBe(500);
     expect(res.body.details.stack).toContain("boom");
+  });
+});
+
+describe("errorHandler — body-parser charset errors", () => {
+  it("passes the 415 through with a clear message", () => {
+    const json = vi.fn();
+    const res = { status: vi.fn(() => ({ json })) };
+    const err = Object.assign(new Error('unsupported charset "LATIN1"'), { status: 415, type: "charset.unsupported" });
+    errorHandler(err, {} as never, res as never, vi.fn());
+    expect(res.status).toHaveBeenCalledWith(415);
+    expect(json).toHaveBeenCalledWith({ status: 415, message: "Unsupported charset: send the body as UTF-8 JSON" });
   });
 });

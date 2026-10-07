@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import type { HttpError } from "./validate";
 
+export const UNSUPPORTED_CHARSET = "Unsupported charset: send the body as UTF-8 JSON";
+
 /**
  * Centralized Express error handler. Serializes `err.status` (default 500).
  * Stack traces are never sent unless explicitly opted in with DISPATCH_DEBUG=1,
@@ -18,6 +20,10 @@ export function errorHandler(err: HttpError & { type?: string; body?: unknown },
   // style message that reads like a syntax error; say what is actually wrong.
   if (err.type === "entity.parse.failed" && typeof err.body === "string" && !/^\s*[{[]/.test(err.body)) {
     body.message = "Request body must be a JSON object";
+  }
+  // body-parser's own 415 for charsets it cannot decode at all (e.g. latin1).
+  if (err.type === "charset.unsupported") {
+    body.message = UNSUPPORTED_CHARSET;
   }
   if (process.env.DISPATCH_DEBUG === "1" && status >= 500) {
     body.details = { stack: err.stack };
