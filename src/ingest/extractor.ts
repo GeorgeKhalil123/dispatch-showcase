@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ExtractedRoute } from "../shared/types";
 import {
   dedupeRows,
@@ -25,6 +26,23 @@ export interface FieldPassRow {
   flags: string[];
 }
 
+// Runtime shape check for rows parsed from untrusted content. Missing fields
+// default to "not extracted" so they surface as review flags downstream.
+const fieldPassRowSchema = z.object({
+  child_name: z.string().nullable().default(null),
+  home_address: z.string().nullable().default(null),
+  school_address: z.string().nullable().default(null),
+  school_start_time: z.string().nullable().default(null),
+  school_end_time: z.string().nullable().default(null),
+  requires_accommodation: z.boolean().default(false),
+  flags: z.array(z.string()).default([]),
+});
+
+/** The document parsed but its rows don't have the expected shape. */
+export class ExtractionError extends Error {
+  override name = "ExtractionError";
+}
+
 export interface Extractor {
   extract(filename: string, content: string): Promise<FieldPassRow[]>;
 }
@@ -40,8 +58,15 @@ export class StubExtractor implements Extractor {
     if (this.canned[filename]) return structuredClone(this.canned[filename]);
     if (!content.trim()) return [];
     const parsed: unknown = JSON.parse(content);
-    if (!Array.isArray(parsed)) throw new Error("StubExtractor: content must be a JSON array of rows");
-    return parsed as FieldPassRow[];
+    if (!Array.isArray(parsed)) throw new ExtractionError("content must be a JSON array of rows");
+    const rows = z.array(fieldPassRowSchema).safeParse(parsed);
+    if (!rows.success) {
+      const details = rows.error.issues
+        .map((issue) => `row ${issue.path.join(".")}: ${issue.message}`)
+        .join("; ");
+      throw new ExtractionError(`invalid row(s): ${details}`);
+    }
+    return rows.data;
   }
 }
 

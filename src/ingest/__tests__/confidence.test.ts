@@ -8,7 +8,7 @@ import {
   normalizeRow,
   normalizeTime,
 } from "../confidence";
-import { StubExtractor, previewExtraction, type FieldPassRow } from "../extractor";
+import { ExtractionError, StubExtractor, previewExtraction, type FieldPassRow } from "../extractor";
 import type { ExtractedRoute } from "../../shared/types";
 
 function row(overrides: Partial<FieldPassRow> = {}): FieldPassRow {
@@ -141,6 +141,27 @@ describe("previewExtraction (stub extractor)", () => {
     const preview = await previewExtraction(new StubExtractor(), "upload.pdf", JSON.stringify([row()]));
     expect(preview.total_extracted).toBe(1);
     expect(preview.routes[0].route_code).toBe("upload");
+  });
+
+  it("fills omitted fields in parsed content as not extracted", async () => {
+    const [parsed] = await new StubExtractor().extract("upload.pdf", JSON.stringify([{ child_name: "Student 1" }]));
+    expect(parsed).toEqual({
+      child_name: "Student 1",
+      home_address: null,
+      school_address: null,
+      school_start_time: null,
+      school_end_time: null,
+      requires_accommodation: false,
+      flags: [],
+    });
+  });
+
+  it("rejects parsed content that is not an array of row objects", async () => {
+    const extractor = new StubExtractor();
+    await expect(extractor.extract("x.pdf", '{"a":1}')).rejects.toThrow(ExtractionError);
+    await expect(extractor.extract("x.pdf", "[null]")).rejects.toThrow(/row 0/);
+    await expect(extractor.extract("x.pdf", '[{"child_name":5}]')).rejects.toThrow(/row 0\.child_name/);
+    await expect(extractor.extract("x.pdf", '[{"flags":"none"}]')).rejects.toThrow(/row 0\.flags/);
   });
 
   it("warns when nothing was extracted", async () => {

@@ -1,9 +1,9 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { solve } from "../optimizer/solve";
 import type { TravelTimeProvider } from "../optimizer/travelTime";
-import { previewExtraction, type Extractor } from "../ingest/extractor";
+import { ExtractionError, previewExtraction, type Extractor } from "../ingest/extractor";
 import type { DispatchRepository } from "./repository";
-import { requireFields, validateDate, validatePositiveNumber } from "./validate";
+import { httpError, requireFields, validateDate, validatePositiveNumber } from "./validate";
 import { importPreviewSchema, optimizeRequestSchema, zodErrorToHttp } from "./schemas";
 import { errorHandler } from "./errorHandler";
 
@@ -16,6 +16,16 @@ export interface AppDeps {
 export function createApp({ repo, travel, extractor }: AppDeps): Express {
   const app = express();
   app.use(express.json({ limit: "1mb" }));
+
+  // Every endpoint takes JSON. A body sent with another Content-Type would
+  // otherwise be ignored by express.json() and fail confusingly downstream.
+  // No Content-Type at all leaves req.body unset; the field checks 400 that.
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (req.headers["content-type"] && !req.is("application/json")) {
+      return next(httpError("Unsupported Media Type: send the body as application/json", 415));
+    }
+    next();
+  });
 
   app.get("/health", (_req: Request, res: Response) => {
     res.status(200).json({ ok: true, travel_provider: travel.name });
@@ -66,8 +76,16 @@ export function createApp({ repo, travel, extractor }: AppDeps): Express {
       const preview = await previewExtraction(extractor, filename, content);
       res.status(200).json(preview);
     } catch (err) {
-      next(err instanceof SyntaxError ? Object.assign(new Error(`Could not parse document: ${err.message}`), { status: 422 }) : err);
+      next(
+        err instanceof SyntaxError || err instanceof ExtractionError
+          ? httpError(`Could not parse document: ${err.message}`, 422)
+          : err,
+      );
     }
+  });
+
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    next(httpError(`Not found: ${req.method} ${req.path}`, 404));
   });
 
   app.use(errorHandler);

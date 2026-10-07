@@ -47,6 +47,14 @@ describe("requireFields", () => {
     expect(err.message).toContain("email");
   });
 
+  it("reports missing fields instead of throwing when no body was parsed", () => {
+    const next = collectNext();
+    requireFields("date")(makeReq(undefined), {} as Response, next);
+    const err = (next as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(err.status).toBe(400);
+    expect(err.message).toContain("date");
+  });
+
   it("treats an empty string as missing (not merely undefined/null)", () => {
     const next = collectNext();
     requireFields("name")(makeReq({ name: "" }), {} as Response, next);
@@ -105,6 +113,21 @@ describe("validateDate", () => {
     const err = (next as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(err).toBeDefined();
     expect(err.status).toBe(400);
+  });
+
+  it("rejects an impossible calendar date that Date would roll over", () => {
+    for (const date of ["2026-02-30", "2026-02-29", "2026-04-31T08:00:00Z"]) {
+      const next = collectNext();
+      validateDate("date")(makeReq({ date }), {} as Response, next);
+      const err = (next as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(err?.status, date).toBe(400);
+    }
+  });
+
+  it("accepts Feb 29 in a leap year", () => {
+    const next = collectNext();
+    validateDate("date")(makeReq({ date: "2028-02-29" }), {} as Response, next);
+    expect(next).toHaveBeenCalledWith();
   });
 
   it("rejects a non-string value", () => {

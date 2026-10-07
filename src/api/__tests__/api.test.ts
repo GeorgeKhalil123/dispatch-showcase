@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../app";
 import { InMemoryRepository } from "../repository";
 import { HaversineProvider } from "../../optimizer/travelTime";
-import { StubExtractor } from "../../ingest/extractor";
+import { StubExtractor, type Extractor } from "../../ingest/extractor";
 import { DEMO_DATE, demoAssignments, demoDrivers, demoManifests, demoRoutes } from "../../demo/dataset";
 import type { OptimizationResult } from "../../optimizer/types";
 
@@ -44,6 +44,36 @@ describe("POST /optimize", () => {
     expect(res.status).toBe(400);
   });
 
+  it("415s on a form-encoded body instead of crashing", async () => {
+    const res = await request(makeApp()).post("/optimize").type("form").send("date=2026-09-08");
+    expect(res.status).toBe(415);
+    expect(res.body.details).toBeUndefined();
+  });
+
+  it("415s on JSON text sent as text/plain", async () => {
+    const res = await request(makeApp()).post("/optimize").set("Content-Type", "text/plain").send('{"date":"2026-09-08"}');
+    expect(res.status).toBe(415);
+  });
+
+  it("400s when there is no body at all", async () => {
+    const res = await request(makeApp()).post("/optimize");
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("date");
+  });
+
+  it("400s on a date that does not exist", async () => {
+    const res = await request(makeApp()).post("/optimize").send({ date: "2026-02-30" });
+    expect(res.status).toBe(400);
+  });
+
+  it("never reports more iterations than max_iterations", async () => {
+    const res = await request(makeApp()).post("/optimize").send({ date: DEMO_DATE, max_iterations: 5 });
+    expect(res.status).toBe(200);
+    for (const d of (res.body as OptimizationResult).diagnostics) {
+      expect(d.iterations).toBeLessThanOrEqual(5);
+    }
+  });
+
   it("returns a proposal that preserves existing assignments for that date", async () => {
     const res = await request(makeApp()).post("/optimize").send({ date: DEMO_DATE });
     expect(res.status).toBe(200);
@@ -77,5 +107,58 @@ describe("POST /import/preview", () => {
   it("422s when the document content cannot be parsed", async () => {
     const res = await request(makeApp()).post("/import/preview").send({ filename: "x.pdf", content: "{broken" });
     expect(res.status).toBe(422);
+  });
+});
+
+describe("POST /import/preview — malformed rows", () => {
+  it.each([
+    ["a JSON object", '{"a":1}'],
+    ["a null row", "[null]"],
+    ["a non-string field", '[{"child_name":5}]'],
+  ])("422s on %s instead of a 500", async (_label, content) => {
+    const res = await request(makeApp()).post("/import/preview").send({ filename: "x.pdf", content });
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/^Could not parse document: /);
+    expect(res.body.details).toBeUndefined();
+  });
+});
+
+describe("unknown routes", () => {
+  it("404s with a JSON body", async () => {
+    const res = await request(makeApp()).get("/nope");
+    expect(res.status).toBe(404);
+    expect(res.type).toBe("application/json");
+    expect(res.body).toEqual({ status: 404, message: "Not found: GET /nope" });
+  });
+});
+
+describe("error handler", () => {
+  const failing: Extractor = {
+    extract: () => Promise.reject(new Error("boom")),
+  };
+  const failingApp = () =>
+    createApp({
+      repo: new InMemoryRepository(demoDrivers, demoRoutes, demoAssignments),
+      travel: new HaversineProvider(),
+      extractor: failing,
+    });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("omits the stack on a 500 by default", async () => {
+    vi.stubEnv("DISPATCH_DEBUG", "");
+    const res = await request(failingApp()).post("/import/preview").send({ filename: "x.pdf" });
+    expect(res.status).toBe(500);
+    expect(res.body.message).toBe("boom");
+    expect(res.body.details).toBeUndefined();
+  });
+
+  it("includes the stack on a 500 only when DISPATCH_DEBUG=1", async () => {
+    vi.stubEnv("DISPATCH_DEBUG", "1");
+    const res = await request(failingApp()).post("/import/preview").send({ filename: "x.pdf" });
+    expect(res.status).toBe(500);
+    expect(res.body.details.stack).toContain("boom");
   });
 });

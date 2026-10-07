@@ -1,5 +1,5 @@
 import { z, type ZodError } from "zod";
-import type { HttpError } from "./validate";
+import { isCalendarDate, type HttpError } from "./validate";
 
 /**
  * Convert a Zod validation failure into an Express-style `HttpError` carrying
@@ -23,7 +23,8 @@ export function zodErrorToHttp(err: ZodError, prefix = "Validation failed"): Htt
 
 const isoDate = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date: expected ISO format (YYYY-MM-DD).");
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date: expected ISO format (YYYY-MM-DD).")
+  .refine(isCalendarDate, "Invalid date: not a real calendar date.");
 
 // Body of POST /optimize. Mirrors SolveConfig plus the date whose existing
 // assignments should be preserved.
