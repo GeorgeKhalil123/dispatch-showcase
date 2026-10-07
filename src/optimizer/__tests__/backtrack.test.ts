@@ -156,4 +156,16 @@ describe("solvePeriod — iteration cap", () => {
     expect(result.assignedCount).toBeGreaterThanOrEqual(result.seed!.flexibleCount);
     expect(result.assignedCount).toBe(n);
   });
+
+  it("never reports more iterations than the cap", () => {
+    const n = 12;
+    const ordered = Array.from({ length: n }, (_, i) => flex(makeCandidate(1000 + i * 30)));
+    const home = Array.from({ length: 4 }, (_, d) => ordered.map((_, c) => tripInfo(5, 1 + ((d + c) % 3))));
+    const inter = ordered.map(() => ordered.map(() => tripInfo(5, 2)));
+    for (const cap of [1, 5, 50]) {
+      const result = solvePeriod(ordered, 4, home, inter, "AM", 5, cap);
+      expect(result.timedOut).toBe(true);
+      expect(result.iterations).toBe(cap);
+    }
+  });
 });

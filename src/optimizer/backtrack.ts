@@ -108,7 +108,10 @@ export function solvePeriod(
     currentAssignment: Map<number, { driverIdx: number; tripInfo: TripInfo }>,
     assignedCount: number, // only flexible candidates
   ): void => {
-    if (++iterations > maxIterations) { timedOut = true; return; }
+    // Check before counting so calls made while unwinding after the cap
+    // don't push the reported count past it.
+    if (iterations >= maxIterations) { timedOut = true; return; }
+    iterations++;
 
     // Prune 1: even if we assign ALL remaining flexible candidates, can we beat best?
     if (assignedCount + flexibleSuffix[candidateIdx] < bestCount) return;
