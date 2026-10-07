@@ -95,7 +95,7 @@ No screenshots are included: the source repository contains no screenshots or GI
 | `grouping/`: Union-Find grouping, haversine pre-filter, travel-time refinement, with the database and Maps decoupled | Cost calculator (pay rates, gas/toll settings) |
 | `ingest/`: confidence scoring, dedup and review routing, driven by a **toy** `StubExtractor` returning canned rows | PDF text extraction, extraction prompts and the model call path |
 | `api/`: Express 5 app with `validate.ts` middleware and zod schemas; `POST /optimize` and `POST /import/preview` over an in-memory repository | The rest of the REST API, auth, rate limiting, logging, the client app, the PDF schedule generator |
-| `db/migrations/`: 3 illustrative migrations adapted from the 12 real ones, runnable on PostgreSQL or SQLite | Seed data, all real driver, student and school data, real manifests |
+| `db/migrations/`: 3 illustrative migrations adapted from the 12 real ones, tested on SQLite; Postgres-specific statements are gated on the client | Seed data, all real driver, student and school data, real manifests |
 
 Everything under `src/demo/` is synthetic: a made-up town ("Fairview") with 6 drivers, 12 routes (6 AM, 6 PM) and 3 schools.
 
@@ -122,6 +122,8 @@ curl -s -X POST localhost:3000/import/preview -H 'content-type: application/json
   -d '{"filename":"RT201 Morning.pdf"}'
 ```
 
+Client errors come back as JSON 4xx (`{"status":…,"message":…}`). Server errors never include a stack trace unless the server is started with `DISPATCH_DEBUG=1`.
+
 Excerpt of `npm run demo`:
 
 ```
@@ -129,6 +131,9 @@ Excerpt of `npm run demo`:
 6 drivers, 12 routes, 1 preserved assignment(s), provider = haversine
 [AM] 3 flexible candidate(s): greedy seed 3 covered / 10.99 mi, backtracking 3 covered / 10.99 mi (170 iterations)
 [PM] 4 flexible candidate(s): greedy seed 4 covered / 23.72 mi, backtracking 4 covered / 20.48 mi (852 iterations)
+
+AM  rt-106-am   Driver 4  (preserved)
+AM  rt-103-am   Driver 2    3.18 mi   4 min
 ...
 {"total_routes":12,"assigned":10,"unassigned":0,"flagged_skipped":2,"total_estimated_miles":31.47,"total_estimated_minutes":41,"drivers_used":4}
 
@@ -157,7 +162,7 @@ src/
 
 ## Tests
 
-`npm test` runs 112 tests across 10 files. The feasibility, greedy-seed, trip-helper and validate-middleware tests are ported from the private repo. The grouping tests were rewritten to run without the database mock. The solver, confidence, API (supertest) and migration (Knex on in-memory SQLite) tests were written for this extract. CI runs typecheck, lint and tests on Node 22.
+`npm test` runs 129 tests across 10 files. The feasibility, greedy-seed, trip-helper and validate-middleware tests are ported from the private repo. The grouping tests were rewritten to run without the database mock. The solver, confidence, API (supertest) and migration (Knex on in-memory SQLite) tests were written for this extract. CI runs typecheck, lint and tests on Node 22.
 
 ## Known limitation (inherited)
 

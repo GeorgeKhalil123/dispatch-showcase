@@ -134,7 +134,8 @@ export const demoAssignments: Assignment[] = [
 // Canned rows the StubExtractor returns for a fictional manifest upload.
 export const demoManifests: Record<string, FieldPassRow[]> = {
   "RT201 Morning.pdf": [
-    // Clean row: no flags, every field present -> auto-accept candidate
+    // Every field present and no flags of its own, but its duplicate below
+    // carries a flag that dedup merges in -> still routed to review
     { child_name: "Student 21", home_address: "4 Lark St, Fairview", school_address: "100 School Ln, Fairview", school_start_time: "7:50 am", school_end_time: "2:30 pm", requires_accommodation: false, flags: [] },
     // Missing end time -> completeness drops, flagged for review
     { child_name: "Student 22", home_address: "6 Lark St, Fairview", school_address: "100 School Ln, Fairview", school_start_time: "07:50", school_end_time: null, requires_accommodation: false, flags: [] },
